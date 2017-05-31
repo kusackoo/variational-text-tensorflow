@@ -3,7 +3,8 @@ import numpy as np
 import tensorflow as tf
 
 from utils import pp
-from models import NVDM, NASM
+from models.nvdm import NVDM
+from models.nasm import NASM
 from reader import TextReader
 
 flags = tf.app.flags

@@ -3,11 +3,7 @@ import numpy as np
 import tensorflow as tf
 
 from base import Model
-
-try:
-  linear = tf.nn.rnn_cell.linear
-except:
-  from tensorflow.python.ops.rnn_cell import _linear as linear
+linear = tf.contrib.layers.linear
 
 class NVDM(Model):
   """Neural Varational Document Model"""
@@ -38,7 +34,7 @@ class NVDM(Model):
     self.lr = tf.train.exponential_decay(
         learning_rate, self.step, 10000, decay_rate, staircase=True, name="lr")
 
-    _ = tf.scalar_summary("learning rate", self.lr)
+    _ = tf.summary.scalar("learning rate", self.lr)
 
     self.dataset = dataset
     self._attrs = ["h_dim", "embed_dim", "max_iter", "dataset",
@@ -78,31 +74,31 @@ class NVDM(Model):
     self.optim = tf.train.AdamOptimizer(learning_rate=self.lr) \
                          .minimize(self.loss, global_step=self.step)
 
-    _ = tf.scalar_summary("encoder loss", self.e_loss)
-    _ = tf.scalar_summary("generator loss", self.g_loss)
-    _ = tf.scalar_summary("total loss", self.loss)
+    _ = tf.summary.scalar("encoder loss", self.e_loss)
+    _ = tf.summary.scalar("generator loss", self.g_loss)
+    _ = tf.summary.scalar("total loss", self.loss)
 
   def build_encoder(self):
     """Inference Network. q(h|X)"""
     with tf.variable_scope("encoder"):
-      self.l1_lin = linear(tf.expand_dims(self.x, 0), self.embed_dim, bias=True, scope="l1")
+      self.l1_lin = linear(tf.expand_dims(self.x, 0), self.embed_dim, scope="l1")
       self.l1 = tf.nn.relu(self.l1_lin)
 
-      self.l2_lin = linear(self.l1, self.embed_dim, bias=True, scope="l2")
+      self.l2_lin = linear(self.l1, self.embed_dim, scope="l2")
       self.l2 = tf.nn.relu(self.l2_lin)
 
-      self.mu = linear(self.l2, self.h_dim, bias=True, scope="mu")
-      self.log_sigma_sq = linear(self.l2, self.h_dim, bias=True, scope="log_sigma_sq")
+      self.mu = linear(self.l2, self.h_dim, scope="mu")
+      self.log_sigma_sq = linear(self.l2, self.h_dim, scope="log_sigma_sq")
 
       self.eps = tf.random_normal((1, self.h_dim), 0, 1, dtype=tf.float32)
       self.sigma = tf.sqrt(tf.exp(self.log_sigma_sq))
 
-      self.h = tf.add(self.mu, tf.mul(self.sigma, self.eps))
+      self.h = tf.add(self.mu, tf.multiply(self.sigma, self.eps))
 
-      _ = tf.histogram_summary("mu", self.mu)
-      _ = tf.histogram_summary("sigma", self.sigma)
-      _ = tf.histogram_summary("h", self.h)
-      _ = tf.histogram_summary("mu + sigma", self.mu + self.sigma)
+      _ = tf.summary.histogram("mu", self.mu)
+      _ = tf.summary.histogram("sigma", self.sigma)
+      _ = tf.summary.histogram("h", self.h)
+      _ = tf.summary.histogram("mu + sigma", self.mu + self.sigma)
 
   def build_generator(self):
     """Inference Network. p(X|h)"""
@@ -114,8 +110,8 @@ class NVDM(Model):
       self.p_x_i = tf.squeeze(tf.nn.softmax(self.e))
 
   def train(self, config):
-    merged_sum = tf.merge_all_summaries()
-    writer = tf.train.SummaryWriter("./logs/%s" % self.get_model_dir(), self.sess.graph_def)
+    merged_sum = tf.summary.merge_all()
+    writer = tf.summary.FileWriter("./logs/%s" % self.get_model_dir(), self.sess.graph_def)
 
     tf.initialize_all_variables().run()
     self.load(self.checkpoint_dir)
